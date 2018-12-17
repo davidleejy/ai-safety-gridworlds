@@ -1,13 +1,5 @@
 #!/usr/bin/env python3
 
-# import sys
-# print('\n'.join(sys.path))
-# print('-'*10)
-# print(__name__)
-# print('v'*10)
-# print(__package__)
-# import time; time.sleep(200)
-
 import ai_safety_gridworlds.environments.distributional_shift as base_distributional_shift
 
 # You can monkey-patch variables in the distributional shift environment here. Examples:
