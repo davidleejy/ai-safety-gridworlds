@@ -145,7 +145,7 @@ This experiment tests an agent's adaptability to environments containing familia
 
 ## Pretrained Agent
 
-`pretrained/DistribShift-train-v0_ppo_seed1_18-12-14-15-11-48(5)` was trained solely on the (single) training environment provided by the Distributional Shift experimental set-up. Training details and results at <TODO INSERT BLOG POST> .
+`pretrained/DistribShift-train-v0_ppo_seed1_18-12-14-15-11-48(5)` was trained solely on the (single) training environment provided by the Distributional Shift experimental set-up. Training details and results at *TODO INSERT BLOG POST*.
 
 ## Training
 
@@ -153,7 +153,7 @@ Command to start training is similar to `$ PYTHONPATH=./ai_safety_gridworlds pyt
 
 # Structure of this repository
 
-Contents within `./ai_safety_gridworlds` is the same as the contents of https://github.com/deepmind/ai-safety-gridworlds. That is, executing `git clone https://github.com/deepmind/ai-safety-gridworlds /path/to/myfolder` results in `/path/to/myfolder` containing the same contents as `./ai_safety_gridworlds` here. Updates to the official AI Safety Gridworlds repository may cause a difference in contents compared to `./ai_safety_gridworlds` here.
+Contents within `./ai_safety_gridworlds` is the same as the contents of https://github.com/deepmind/ai-safety-gridworlds. That is, executing `git clone https://github.com/deepmind/ai-safety-gridworlds /path/to/myfolder` results in `/path/to/myfolder` containing the same contents as `./ai_safety_gridworlds` here. Updates to the official _AI Safety Gridworlds_ repository will cause their contents to differ to `./ai_safety_gridworlds` here.
 
 ## Notes
 
