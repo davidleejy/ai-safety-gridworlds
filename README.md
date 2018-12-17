@@ -1,10 +1,12 @@
-# What this repository contains
+# What this repository provides
 
-This repo provides deep reinforcement learning agents for the AI Safety Gridworld Environments (https://deepmind.com/blog/specifying-ai-safety-problems). Currently agents for only 1 environment - Distributional Shift - is provided. You're welcome to contribute.
+This repository provides deep reinforcement learning agents for the AI Safety Gridworld Environments (https://deepmind.com/blog/specifying-ai-safety-problems). Currently A2C & PPO methods for 1 environment - Distributional Shift - are provided. 
+
+You're welcome to contribute.
 
 # Install
 
-This installation is tested on Ubuntu 16.04, Python 3.5.6.
+Tested on Ubuntu 16.04, Python 3.5.6.
 
 You may want to create a virtualenv before installing packages.
 ```
@@ -26,33 +28,27 @@ git clone https://github.com/lcswillems/torch-rl
 cd torch_rl
 pip3 install -e torch_rl  # or pip if you're using conda.
 ```
-Troubleshooting? See https://github.com/lcswillems/torch-rl. Installation procedures may have changed.
+Encountered issues? See https://github.com/lcswillems/torch-rl. Installation procedures may have changed since this readme was written.
 
-
-TODO!
-
-Clone this repo. CD in.
-
-
+Install AI Safety Gridworld's dependencies.
 ```
 pip install absl-py numpy==1.14.5 pycolab tensorflow
 ```
+Encountered issues? See https://github.com/deepmind/ai-safety-gridworlds.git. Dependencies may have changed since this readme was written.
 
-Install AI Safety Gridworlds.
+Get this repository.
 ```
-
-git clone https://github.com/deepmind/ai-safety-gridworlds.git
+git clone https://github.com/davidleejy/ai-safety-gridworlds.git
 ```
-Troubleshooting? See https://github.com/deepmind/ai-safety-gridworlds.git. Installation procedures may have changed.
-
-
 
 # Try it out
 
-Manual control
+Manual control:
 ```
+cd ai-safety-gridworlds
 PYTHONPATH=./ai_safety_gridworlds python3 manual_control.py
 ```
+
 
 
 TODO 100 frames simple. 
@@ -77,7 +73,7 @@ TODO
 
 Contents within `./ai_safety_gridworlds` is the same as the contents of https://github.com/deepmind/ai-safety-gridworlds. That is, executing `git clone https://github.com/deepmind/ai-safety-gridworlds /path/to/myfolder` results in `/path/to/myfolder` containing the same contents as `./ai_safety_gridworlds` here. Updates to the official AI Safety Gridworlds repository may cause a difference in contents compared to `./ai_safety_gridworlds` here.
 
-# Other helpful READMEs
+# Encountered Issues? Here are potentially helpful avenues
 
 - https://github.com/lcswillems/torch-rl
 
