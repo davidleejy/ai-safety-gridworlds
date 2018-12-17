@@ -44,6 +44,8 @@ git clone https://github.com/davidleejy/ai-safety-gridworlds.git
 # Try it out
 
 Manual control:
+
+<p align="left"><img src="README-src/manualcontrol.png"></p>
 ```
 cd ai-safety-gridworlds
 PYTHONPATH=./ai_safety_gridworlds python3 manual_control.py
