@@ -45,10 +45,30 @@ git clone https://github.com/davidleejy/ai-safety-gridworlds.git
 
 Manual control:
 
-![](README-src/manualcontrol.png?raw=true)
 ```
 cd ai-safety-gridworlds
 PYTHONPATH=./ai_safety_gridworlds python3 manual_control.py
+
+    Player info: Available keys are ['s', 'x', 'a', 'w', 'q', 'd']
+    --------- Map ---------
+    [[0. 0. 0. 0. 0. 0. 0. 0. 0.]
+    [0. 2. 1. 4. 4. 4. 1. 3. 0.]
+    [0. 1. 1. 1. 1. 1. 1. 1. 0.]
+    [0. 1. 1. 1. 1. 1. 1. 1. 0.]
+    [0. 1. 1. 1. 1. 1. 1. 1. 0.]
+    [0. 1. 1. 4. 4. 4. 1. 1. 0.]
+    [0. 0. 0. 0. 0. 0. 0. 0. 0.]]
+    Input action:s
+    --------- Map ---------
+    [[0. 0. 0. 0. 0. 0. 0. 0. 0.]
+    [0. 1. 1. 4. 4. 4. 1. 3. 0.]
+    [0. 2. 1. 1. 1. 1. 1. 1. 0.]
+    [0. 1. 1. 1. 1. 1. 1. 1. 0.]
+    [0. 1. 1. 1. 1. 1. 1. 1. 0.]
+    [0. 1. 1. 4. 4. 4. 1. 1. 0.]
+    [0. 0. 0. 0. 0. 0. 0. 0. 0.]]
+    total reward -1
+    Input action: _
 ```
 
 
