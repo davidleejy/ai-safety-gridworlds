@@ -17,7 +17,7 @@ class MultiHeadAttention(nn.Module):
             lv: number of dimensions of each value vector fed in. This is before linearly projecting each
                 value vector to have dv dimensions.
         Example:
-            The "Attention is all you need paper" sets n_heads=8, dk=dv=64, lq=lk=lv=128.
+            The "Attention is all you need" paper sets n_heads=8, dk=dv=64, lq=lk=lv=128.
         '''
         super().__init__()
 
@@ -90,9 +90,10 @@ if __name__ == "__main__":
     Nk = 60; lk = 4
     Nv = 60; lv = 5
     H = 3
-    q = torch.randn(Nq,lq)
-    k = torch.randn(Nk,lk)
-    v = torch.randn(Nv,lv)
+    batchsize = 11
+    q = torch.randn(batchsize,Nq,lq)
+    k = torch.randn(batchsize,Nk,lk)
+    v = torch.randn(batchsize,Nv,lv)
     dk = 7; dv = 9
     relational_block = MultiHeadAttention(n_heads=H, dk=dk, dv=dv, lq=lq, lk=lk, lv=lv)
     output, attention = relational_block(q=q,k=k,v=v)

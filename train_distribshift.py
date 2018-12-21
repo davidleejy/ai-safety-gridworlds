@@ -53,22 +53,17 @@ import gym.spaces
 import sys
 
 from wrappers_gridworld import ActWrapper, ObsWrapper
-
-# try:
-#     import gym_minigrid
-# except ImportError:
-#     pass
-
 from distributional_shift_gym import DistributionalShiftEnv # register env with gym.
-
 import utils
-from model import ACModel_Plain as ACModel
+import model
 
 # Parse arguments
 
 parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
 parser.add_argument("--algo", required=True,
                     help="algorithm to use: a2c | ppo (REQUIRED)")
+parser.add_argument("--modeltype", default='ACModel_Plain',
+                    help='model type to use: ACModel_Plain, ACModel_Relational.')
 parser.add_argument("--env", required=True,
                     help="name of the environment to train on (REQUIRED)")
 parser.add_argument("--obs_type", default='board',
@@ -119,6 +114,10 @@ parser.add_argument("--text", action="store_true", default=False,
                     help="add a GRU to the model to handle text input")
 args = parser.parse_args()
 args.mem = args.recurrence > 1
+
+# Import RL model
+
+ACModel = getattr(model, args.modeltype)
 
 # Define run dir
 
