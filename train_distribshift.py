@@ -149,6 +149,7 @@ utils.seed(args.seed)
 
 envs = []
 for i in range(args.procs):
+    print('make {}-th env'.format(i+1))
     env = gym.make(args.env)
     env.seed(args.seed + 10000*i)
     env = ActWrapper(env)

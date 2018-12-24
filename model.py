@@ -54,7 +54,8 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
 
         # Define x, y position layers
         x_layer, y_layer = xy_meshgrid(height=n, width=m)
-        self.x_layer, self.y_layer = x_layer.unsqueeze(0), y_layer.unsqueeze(0)
+        self.x_layer = x_layer.view(1, 1, *(x_layer.shape)) # shape (1,1,h,w)
+        self.y_layer = y_layer.view(1, 1, *(y_layer.shape))
         if torch.cuda.is_available():
             self.x_layer = self.x_layer.cuda()
             self.y_layer = self.y_layer.cuda()
@@ -123,18 +124,25 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
         x = self.image_conv(x)
         # x = x.reshape(x.shape[0], -1)
         
-        x = x.squeeze()
-        assert len(x.shape) == 3 # current implementation of relational module doesn't accept nchw format but rather just chw format. Will get around to correcting it if need be.
-        print(x.shape) # shape chans x h x w
-        x_tagged = torch.cat([x, self.x_layer, self.y_layer], dim=0)
-        x_tagged = x_tagged.view(x_tagged.shape[0], x_tagged.shape[1]*x_tagged.shape[2])
-        x_tagged = x_tagged.permute(1,0) # shape (h*w) x chans
-        # print(x_tagged.shape)
+        # x = x.squeeze()
+        assert len(x.shape) == 4 # current implementation of relational module accepts nchw format
 
-        x_attn, attention = self.relational_block(x_tagged, x_tagged, x_tagged) # x_attn shape same as x_tagged. attention shape (heads, entities, entities)
-        x_attn = x_attn.permute(1,0) # shape chans x (h*w)
-        x_attn = x_attn.unsqueeze(0) # shape 1 x chans x (h*w)
-        x_attn = self.feature_wise_maxpool(x_attn) # shape 1 x chans x 1
+        print(x.shape) # shape bs x chans x h x w
+        
+        x_layer = self.x_layer.clone()
+        y_layer = self.y_layer.clone()
+        x_layer = x_layer.repeat(x.shape[0],1,1,1)
+        y_layer = y_layer.repeat(x.shape[0],1,1,1)
+        x_tagged = torch.cat([x, x_layer, y_layer], dim=-3)
+        x_tagged = x_tagged.view(x_tagged.shape[0], x_tagged.shape[1], x_tagged.shape[2]*x_tagged.shape[3]) # shape bs x chans x h*w
+        x_tagged = x_tagged.permute(0,2,1) # shape bs x (h*w) x chans
+        print(x_tagged.shape)
+        #watn x_tagged to be bs x h*w x chans
+
+        x_attn, attention = self.relational_block(x_tagged, x_tagged, x_tagged) # x_attn shape same as x_tagged. attention shape (bs, heads, entities, entities)
+        x_attn = x_attn.permute(0,2,1) # shape bs x chans x (h*w)
+        # x_attn = x_attn.unsqueeze(0) # shape 1 x chans x (h*w)
+        x_attn = self.feature_wise_maxpool(x_attn) # shape bs x chans x 1
         x_attn = x_attn.squeeze(-1)
 
         x_attn_mlp = self.mlp_aft_feat_wise_maxpool(x_attn)

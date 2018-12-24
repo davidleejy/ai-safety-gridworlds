@@ -50,32 +50,31 @@ class MultiHeadAttention(nn.Module):
     def forward(self, q, k, v):
         '''
         Args:
-            q: queries. torch tensor shaped Nq x lq. Example: Nq = 64 for a 8x8 gridworld where each square may contain an entity - so 64 entities in total. lq is no. of dimensions each entity is afforded. Suppose each entity is described with a vector with 3 elements (x,y,entitytype), then lq=3.
-            k: keys. torch tensor shaped Nk x lk. Nk is number of keys. lk is no. of dimensions of each key vector.
-            v: values. torch tensor shaped Nv x lv. Nv is number of values. lv is no. of dimensions of each value vector. Note that Nk == Nv because each key must be paired with a value.
+            q: queries. torch tensor shaped bs x Nq x lq. Example: Nq = 64 for a 8x8 gridworld where each square may contain an entity - so 64 entities in total. lq is no. of dimensions each entity is afforded. Suppose each entity is described with a vector with 3 elements (x,y,entitytype), then lq=3. bs is batch size.
+            k: keys. torch tensor shaped bs x Nk x lk. Nk is number of keys. lk is no. of dimensions of each key vector. bs is batch size.
+            v: values. torch tensor shaped bs x Nv x lv. Nv is number of values. lv is no. of dimensions of each value vector. Note that Nk == Nv because each key must be paired with a value. bs is batch size.
         Returns:
-            output: torch tensor shaped Nq x lq.
-            attention: scaled attention. Torch tensor shaped n_heads x Nq x Nk.
+            output: torch tensor shaped bs x Nq x lq.
+            attention: scaled attention. Torch tensor shaped bs x n_heads x Nq x Nk.
         '''
         dk, dv, H = self.dk, self.dv, self.n_heads
         residual = q
-        Nq, _ = q.shape
-        Nk, _ = k.shape
-        Nv, _ = v.shape
-        Q = self.wq(q) # shape Nq x H*dk
-        K = self.wk(k)
+        bs, Nq, _ = q.shape
+        bs, Nk, _ = k.shape
+        bs, Nv, _ = v.shape
+        Q = self.wq(q) # shape bs x Nq x H*dk
+        K = self.wk(k) # shape bs x Nk x H*dk
         V = self.wv(v)
-        Q = Q.view(Nq, H, dk)
-        K = K.view(Nk, H, dk)
-        V = V.view(Nv, H, dv)
-        V = V.permute(1,0,2) # shape H x Nv x dv
-        Q = Q.permute(1,0,2) # shape H x Nq x dk
-        K_t = K.permute(1,2,0) # shape H x dk x Nk
-
-        attention = self.softmax( torch.bmm(Q, K_t) * (1 / (dk**0.5)) )
-        A = torch.bmm(attention, V) # shape H x Nq x Nk
-        A = A.permute(1,0,2) # shape Nq x H x dv
-        A = A.contiguous().view(Nq, H*dv) # shape Nq x H*dv
+        Q = Q.view(bs, Nq, H, dk)
+        K = K.view(bs, Nk, H, dk)
+        V = V.view(bs, Nv, H, dv)
+        V = V.permute(0,2,1,3) # shape bs x H x Nv x dv
+        Q = Q.permute(0,2,1,3) # shape bs x H x Nq x dk
+        K_t = K.permute(0,2,3,1) # shape bs x H x dk x Nk
+        attention = self.softmax( torch.matmul(Q, K_t) * (1 / (dk**0.5)) ) # shape bs x H x Nq x Nk
+        A = torch.matmul(attention, V) # shape bs x H x Nq x dv
+        A.permute(0,2,1,3) # bs x Nq x H x dv
+        A = A.contiguous().view(bs, Nq, H*dv) # shape bs x Nq x H*dv
         Y = self.wa(A)
         Y = Y + residual
         # output = self.dropout(self.fc(Y))  # TODO necessary?
@@ -97,13 +96,13 @@ if __name__ == "__main__":
     dk = 7; dv = 9
     relational_block = MultiHeadAttention(n_heads=H, dk=dk, dv=dv, lq=lq, lk=lk, lv=lv)
     output, attention = relational_block(q=q,k=k,v=v)
-    No, lo = output.shape
+    bs, No, lo = output.shape
     relational_block2 = MultiHeadAttention(n_heads=H, dk=dk, dv=dv, lq=lo, lk=lo, lv=lo)
     output2, attention2 = relational_block2(output,output,output)
 
     # Example of [1,3,5] relational block config:
-    Ne=64; le=5
-    E = torch.randn(Ne,le)
+    Ne=64; le=5; batchsize=1
+    E = torch.randn(batchsize, Ne,le)
     relational_block_1 = MultiHeadAttention(n_heads=3, dk=7, dv=9, lq=le, lk=le, lv=le)
     relational_block_2_1 = MultiHeadAttention(n_heads=4, dk=7, dv=10, lq=le, lk=le, lv=le)
     relational_block_2_2 = MultiHeadAttention(n_heads=3, dk=6, dv=9, lq=le, lk=le, lv=le)
@@ -115,9 +114,10 @@ if __name__ == "__main__":
     O21, A21 = relational_block_2_1(O1,O1,O1)
     O22, A22 = relational_block_2_2(O1,O1,O1)
     O23, A23 = relational_block_2_3(O1,O1,O1)
-    O2 = torch.cat([O21,O22,O23], dim=1)
+    O2 = torch.cat([O21,O22,O23], dim=-1)
     O31, A31 = relational_block_3_1(O2,O2,O2)
     O32, A32 = relational_block_3_2(O2,O2,O2)
     O33, A33 = relational_block_3_3(O2,O2,O2)
-    O3 = torch.cat([O31,O32,O33], dim=1)
+    O3 = torch.cat([O31,O32,O33], dim=-1)
     print('output shape', O3.shape)
+
