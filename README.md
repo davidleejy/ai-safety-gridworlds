@@ -1,3 +1,18 @@
+# Rough notes
+
+This section is only meant for developers, not users.
+
+Train relational, normalize rewards by dividing all rewards by 50:
+
+$ PYTHONPATH=./ai_safety_gridworlds python3 train_distribshift.py --env DistribShift-train-v0 --algo ppo --modeltype ACModel_Relational --frames 500000
+
+Evaluate:
+
+$ PYTHONPATH=./ai_safety_gridworlds python3 evaluate.py --env DistribShift-test-v0 --model DistribShift-train-v0_ppo_seed1_18-12-24-13-59-04
+
+
+
+
 # What this repository provides
 
 This repository provides deep reinforcement learning agents for the AI Safety Gridworld Environments (https://deepmind.com/blog/specifying-ai-safety-problems). Currently A2C & PPO methods for 1 environment - Distributional Shift - are provided. 
