@@ -120,14 +120,14 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
     def forward(self, obs, memory=None):
         
         x = torch.transpose(torch.transpose(obs.image, 1, 3), 2, 3)
-        print('fx shape input', x.shape)
+        # print('fx shape input', x.shape)
         x = self.image_conv(x)
         # x = x.reshape(x.shape[0], -1)
         
         # x = x.squeeze()
         assert len(x.shape) == 4 # current implementation of relational module accepts nchw format
 
-        print(x.shape) # shape bs x chans x h x w
+        # print(x.shape) # shape bs x chans x h x w
         
         x_layer = self.x_layer.clone()
         y_layer = self.y_layer.clone()
@@ -136,7 +136,7 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
         x_tagged = torch.cat([x, x_layer, y_layer], dim=-3)
         x_tagged = x_tagged.view(x_tagged.shape[0], x_tagged.shape[1], x_tagged.shape[2]*x_tagged.shape[3]) # shape bs x chans x h*w
         x_tagged = x_tagged.permute(0,2,1) # shape bs x (h*w) x chans
-        print(x_tagged.shape)
+        # print(x_tagged.shape)
         #watn x_tagged to be bs x h*w x chans
 
         x_attn, attention = self.relational_block(x_tagged, x_tagged, x_tagged) # x_attn shape same as x_tagged. attention shape (bs, heads, entities, entities)
