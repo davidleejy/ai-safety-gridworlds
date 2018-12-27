@@ -66,7 +66,7 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
         # print("-"*9)
 
         # Define relational modules
-        self.relational_block = MultiHeadAttention(n_heads=6, dk=5, dv=6, lq=16+2, lk=16+2, lv=16+2)
+        self.relational_block = MultiHeadAttention(n_heads=6, dk=5, dv=6, lq=16+2, lk=16+2, lv=16+2, residual_conn=False, norm=False)
 
         # Feature-wise max pool
         if 1 == fwmp_type:
@@ -82,13 +82,14 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
             self.actorcritic_input_size = 32
         elif 2 == fwmp_type:
             self.feature_wise_maxpool = nn.Sequential(
-                nn.Conv2d(16+2, 8, (1, 1)), # conv 1x1
-                nn.ReLU(),
-                nn.Conv2d(8, 2, (1, 1)), # conv 1x1
-                nn.ReLU(),
+                nn.Conv2d(16+2, 16, (1, 1)), # conv 1x1
+                nn.ReLU(), # shape bs x chans x h x w
+                # nn.Conv2d(8, 2, (1, 1)), # conv 1x1
+                # nn.ReLU(), # shape bs x chans x h x w
+                # nn.LayerNorm(normalized_shape=[n,m], eps=1e-5),
                 nn.MaxPool2d(kernel_size=(n,m)) # reduces positions to 1 value.
             )
-            self.actorcritic_input_size = 2
+            self.actorcritic_input_size = 16
         else:
             NotImplementedError
         
@@ -164,9 +165,7 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
             x_attn_mlp = self.mlp_aft_feat_wise_maxpool(x_attn)
         elif 2 == self.fwmp_type:
             x_attn = x_attn.view(x_attn.shape[0], x_attn.shape[1], h, w)
-            # print('x_attn shape', x_attn.shape)
             x_attn = self.feature_wise_maxpool(x_attn) # shape bs x chans x 1 x 1
-            # print('x_attn shape', x_attn.shape)
             assert (1,1) == x_attn.shape[-2:]
             x_attn = x_attn.squeeze(-1)
             x_attn_mlp = x_attn.squeeze(-1) # shape bs x chans

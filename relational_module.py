@@ -4,7 +4,7 @@ import torch.nn as nn
 class MultiHeadAttention(nn.Module):
     ''' Multi-Head Attention module. '''
 
-    def __init__(self, n_heads, dk, dv, lq, lk, lv):
+    def __init__(self, n_heads, dk, dv, lq, lk, lv, residual_conn, norm):
         '''
         Args:
             n_heads: number of heads.
@@ -16,6 +16,8 @@ class MultiHeadAttention(nn.Module):
                 key vector to have dk dimensions.
             lv: number of dimensions of each value vector fed in. This is before linearly projecting each
                 value vector to have dv dimensions.
+            residual_conn: residual connection to q if True. False otherwise.
+            norm: norm layer if True. False otherwise.
         Example:
             The "Attention is all you need" paper sets n_heads=8, dk=dv=64, lq=lk=lv=128.
         '''
@@ -27,6 +29,8 @@ class MultiHeadAttention(nn.Module):
         self.lq = lq
         self.lk = lk
         self.lv = lv
+        self.residual_conn = residual_conn
+        self.norm = norm
 
         self.wq = torch.nn.Linear(lq, n_heads*dk)
         self.wk = torch.nn.Linear(lk, n_heads*dk)
@@ -37,8 +41,8 @@ class MultiHeadAttention(nn.Module):
         # nn.init.normal_(self.w_vs.weight, mean=0, std=np.sqrt(2.0 / (d_model + d_v)))
 
         self.softmax = nn.Softmax(dim=-1)
-
-        self.layer_norm = nn.LayerNorm(normalized_shape=lq, eps=1e-5)
+        if norm:
+            self.layer_norm = nn.LayerNorm(normalized_shape=lq, eps=1e-5)
         self.wa = torch.nn.Linear(n_heads*dv, lq)
 
         # self.fc = nn.Linear(n_head * d_v, d_model)
@@ -76,9 +80,13 @@ class MultiHeadAttention(nn.Module):
         A.permute(0,2,1,3) # bs x Nq x H x dv
         A = A.contiguous().view(bs, Nq, H*dv) # shape bs x Nq x H*dv
         Y = self.wa(A)
-        Y = Y + residual
+        if self.residual_conn:
+            Y = Y + residual
         # output = self.dropout(self.fc(Y))  # TODO necessary?
-        output = self.layer_norm(Y)
+        if self.norm:
+            output = self.layer_norm(Y)
+        else:
+            output = Y
         return output, attention
 
 
