@@ -67,7 +67,7 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
         # print("-"*9)
 
         # Define relational modules
-        self.relational_block = MultiHeadAttention(n_heads=4, dk=4, dv=4, lq=4+2, lk=4+2, lv=4+2, reduce_heads='concat', reduce_entities='off', transform_last=True, residual_conn=False, norm='off')
+        self.relational_block = MultiHeadAttention(n_heads=4, dk=4, dv=4, lq=4+2, lk=4+2, lv=4+2, reduce_heads='concat', reduce_entities='off', transform_last=False, residual_conn=False, norm='off')
 
         # Feature-wise max pool
         if 1 == fwmp_type:
@@ -107,6 +107,9 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
             #     # nn.ReLU()
             # ) # 2 hidden layers
             self.actorcritic_input_size = 4+2
+        elif 4 == fwmp_type:
+            # GIN
+
         else:
             NotImplementedError
         
@@ -191,7 +194,9 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
             x_attn = torch.sum(x_attn, dim=-1, keepdim=False) # bs x chans
             # x_attn = self.layernorm_across_features(x_attn)
             # x_attn_mlp = self.mlp_aft_feat_wise_maxpool(x_attn)
-            x_attn_mlp = x_attn           
+            x_attn_mlp = x_attn
+        elif 4 == self.fwmp_type:
+            NotImplementedError
         else:
             NotImplementedError
         
