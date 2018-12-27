@@ -4,7 +4,7 @@ import torch.nn as nn
 class MultiHeadAttention(nn.Module):
     ''' Multi-Head Attention module. '''
 
-    def __init__(self, n_heads, dk, dv, lq, lk, lv, residual_conn, norm):
+    def __init__(self, n_heads, dk, dv, lq, lk, lv, reduce_heads, reduce_entities, transform_last, residual_conn, norm):
         '''
         Args:
             n_heads: number of heads.
@@ -16,8 +16,11 @@ class MultiHeadAttention(nn.Module):
                 key vector to have dk dimensions.
             lv: number of dimensions of each value vector fed in. This is before linearly projecting each
                 value vector to have dv dimensions.
+            reduce_heads: method for reducing the output for the many heads. Options "concat", "sum".
+            reduce_entities: method for reducing over the entities. Options "off", "sum".
+            transform_last: apply the last linear layer as is common in such architectures if True. False otherwise.
             residual_conn: residual connection to q if True. False otherwise.
-            norm: norm layer if True. False otherwise.
+            norm: apply normalization at end. Options "default", "off".
         Example:
             The "Attention is all you need" paper sets n_heads=8, dk=dv=64, lq=lk=lv=128.
         '''
@@ -29,9 +32,12 @@ class MultiHeadAttention(nn.Module):
         self.lq = lq
         self.lk = lk
         self.lv = lv
+        self.reduce_heads = reduce_heads
+        self.reduce_entities = reduce_entities
+        self.transform_last = transform_last
         self.residual_conn = residual_conn
         self.norm = norm
-
+        
         self.wq = torch.nn.Linear(lq, n_heads*dk)
         self.wk = torch.nn.Linear(lk, n_heads*dk)
         self.wv = torch.nn.Linear(lv, n_heads*dv)
@@ -41,9 +47,22 @@ class MultiHeadAttention(nn.Module):
         # nn.init.normal_(self.w_vs.weight, mean=0, std=np.sqrt(2.0 / (d_model + d_v)))
 
         self.softmax = nn.Softmax(dim=-1)
-        if norm:
-            self.layer_norm = nn.LayerNorm(normalized_shape=lq, eps=1e-5)
-        self.wa = torch.nn.Linear(n_heads*dv, lq)
+
+        if reduce_heads == 'concat':
+            layernorm_shape = n_heads*dv
+        elif self.reduce_heads == 'sum':
+            layernorm_shape = dv
+
+        if transform_last:
+            if self.reduce_heads == 'concat':
+                self.wa = torch.nn.Linear(n_heads*dv, lq)
+            elif self.reduce_heads == 'sum':
+                self.wa = torch.nn.Linear(dv, lq)
+            layernorm_shape = self.wa.out_features
+
+
+        if norm == 'default':
+            self.layer_norm = nn.LayerNorm(normalized_shape=[layernorm_shape], eps=1e-5)
 
         # self.fc = nn.Linear(n_head * d_v, d_model)
         # nn.init.xavier_normal_(self.fc.weight) # TODO necessary?
@@ -77,16 +96,33 @@ class MultiHeadAttention(nn.Module):
         K_t = K.permute(0,2,3,1) # shape bs x H x dk x Nk
         attention = self.softmax( torch.matmul(Q, K_t) * (1 / (dk**0.5)) ) # shape bs x H x Nq x Nk
         A = torch.matmul(attention, V) # shape bs x H x Nq x dv
-        A.permute(0,2,1,3) # bs x Nq x H x dv
-        A = A.contiguous().view(bs, Nq, H*dv) # shape bs x Nq x H*dv
-        Y = self.wa(A)
+        if self.reduce_heads == 'concat':
+            A.permute(0,2,1,3) # bs x Nq x H x dv
+            A = A.contiguous().view(bs, Nq, H*dv) # shape bs x Nq x H*dv
+        elif self.reduce_heads == 'sum':
+            A.permute(0,2,1,3) # bs x Nq x H x dv
+            A = torch.sum(A, dim=-2, keepdim=False) # bs x Nq x dv
+        else:
+            NotImplementedError
+        if self.reduce_entities == 'sum':
+            A = torch.sum(A, dim=-2, keepdim=True) # bs x 1 x dv  or  bs x 1 x H*dv
+        elif self.reduce_entities == 'off':
+            pass
+        else:
+            NotImplementedError
+        if self.transform_last:
+            Y = self.wa(A)
+        else:
+            Y = A
         if self.residual_conn:
             Y = Y + residual
         # output = self.dropout(self.fc(Y))  # TODO necessary?
-        if self.norm:
+        if self.norm == 'default':
             output = self.layer_norm(Y)
-        else:
+        elif self.norm == 'off':
             output = Y
+        else:
+            NotImplementedError
         return output, attention
 
 

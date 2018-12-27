@@ -42,16 +42,17 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
         # Define image embedding
         image_chans = obs_space["image"][2]
         self.image_conv = nn.Sequential(
-            nn.Conv2d(image_chans, 8, (1, 1)),
-            nn.ReLU(),
+            nn.Conv2d(image_chans, 4, (1, 1)),
+            nn.Tanh(),
+            # nn.ReLU(),
             # nn.MaxPool2d((2, 2)),
-            nn.Conv2d(8, 16, (1, 1)),
-            nn.ReLU()
+            # nn.Conv2d(8, 4, (1, 1)),
+            # nn.ReLU()
         )
         n = obs_space["image"][0]
         m = obs_space["image"][1]
         # self.image_embedding_size = ((n-1)//2-2)*((m-1)//2-2)*64   # original. image_embedding_size is basically the number of elements at output of self.image_conv(x), not accounting for batch size.
-        self.image_embedding_size = n * m * 16
+        self.image_embedding_size = n * m * 4
 
         # Define x, y position layers
         x_layer, y_layer = xy_meshgrid(height=n, width=m)
@@ -66,7 +67,7 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
         # print("-"*9)
 
         # Define relational modules
-        self.relational_block = MultiHeadAttention(n_heads=6, dk=5, dv=6, lq=16+2, lk=16+2, lv=16+2, residual_conn=False, norm=False)
+        self.relational_block = MultiHeadAttention(n_heads=4, dk=4, dv=4, lq=4+2, lk=4+2, lv=4+2, reduce_heads='concat', reduce_entities='off', transform_last=True, residual_conn=False, norm='off')
 
         # Feature-wise max pool
         if 1 == fwmp_type:
@@ -82,14 +83,30 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
             self.actorcritic_input_size = 32
         elif 2 == fwmp_type:
             self.feature_wise_maxpool = nn.Sequential(
-                nn.Conv2d(16+2, 16, (1, 1)), # conv 1x1
-                nn.ReLU(), # shape bs x chans x h x w
+                # nn.Conv2d(4+2, 6, (1, 1)), # conv 1x1
+                # nn.ReLU(), # shape bs x chans x h x w
+
                 # nn.Conv2d(8, 2, (1, 1)), # conv 1x1
                 # nn.ReLU(), # shape bs x chans x h x w
                 # nn.LayerNorm(normalized_shape=[n,m], eps=1e-5),
                 nn.MaxPool2d(kernel_size=(n,m)) # reduces positions to 1 value.
             )
-            self.actorcritic_input_size = 16
+            self.actorcritic_input_size = 3+2
+        elif 3 == fwmp_type:
+            # input:
+            # bs x chans x h x w   (note h*w is no. of entities)
+            # sum over entities to give
+            # bs x chans x 1.
+            # self.layernorm_across_features = nn.LayerNorm(normalized_shape=[4*4], eps=1e-5)
+            # self.mlp_aft_feat_wise_maxpool = nn.Sequential(
+            #     nn.Linear(3+2, 16), # if reduce_heads='concat' input size = n_heads*dv.
+            #     nn.ReLU(),
+            #     nn.Linear(16, 16),
+            #     nn.ReLU(),
+            #     # nn.Linear(32, 32),
+            #     # nn.ReLU()
+            # ) # 2 hidden layers
+            self.actorcritic_input_size = 4+2
         else:
             NotImplementedError
         
@@ -155,8 +172,8 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
         # print(x_tagged.shape)
 
         x_attn, attention = self.relational_block(x_tagged, x_tagged, x_tagged) # `x_attn` shape same as x_tagged. `attention` shape (bs, heads, entities, entities)
-        
         x_attn = x_attn.permute(0,2,1) # shape bs x chans x (h*w)
+
         if 1 == self.fwmp_type:
             # x_attn = x_attn.unsqueeze(0) # shape 1 x chans x (h*w)
             x_attn = self.feature_wise_maxpool(x_attn)
@@ -170,6 +187,11 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
             x_attn = x_attn.squeeze(-1)
             x_attn_mlp = x_attn.squeeze(-1) # shape bs x chans
             # print('x_attn_mlp shape', x_attn_mlp.shape)
+        elif 3 == self.fwmp_type:
+            x_attn = torch.sum(x_attn, dim=-1, keepdim=False) # bs x chans
+            # x_attn = self.layernorm_across_features(x_attn)
+            # x_attn_mlp = self.mlp_aft_feat_wise_maxpool(x_attn)
+            x_attn_mlp = x_attn           
         else:
             NotImplementedError
         
