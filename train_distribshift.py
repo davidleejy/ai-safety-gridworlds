@@ -65,6 +65,8 @@ parser.add_argument("--algo", required=True,
                     help="algorithm to use: a2c | ppo (REQUIRED)")
 parser.add_argument("--modeltype", default='ACModel_Plain',
                     help='model type to use: ACModel_Plain, ACModel_Relational.')
+parser.add_argument("--fwmp-type", type=int,
+                    help='feature-wise max pool type for ACModel_Relational.')
 parser.add_argument("--env", required=True,
                     help="name of the environment to train on (REQUIRED)")
 parser.add_argument("--obs_type", default='board',
@@ -175,7 +177,11 @@ try:
     acmodel = utils.load_model(model_dir)
     logger.info("Model successfully loaded\n")
 except OSError:
-    acmodel = ACModel(obs_space, envs[0].action_space, args.mem, args.text)
+    try:
+        acmodel = ACModel(obs_space, envs[0].action_space, args.fwmp_type, args.mem, args.text)
+    except:
+        acmodel = ACModel(obs_space, envs[0].action_space, args.mem, args.text)
+if acmodel:
     logger.info("Model successfully created\n")
 logger.info("{}\n".format(acmodel))
 

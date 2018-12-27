@@ -30,13 +30,14 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
     '''
     Actor-critic model with a relational module.
     '''
-    def __init__(self, obs_space, action_space, use_memory=False, use_text=False):
+    def __init__(self, obs_space, action_space, fwmp_type, use_memory=False, use_text=False):
         super().__init__()
 
         # Decide which components are enabled
         # self.use_text = use_text
         self.use_memory = use_memory
         self.recurrent = use_memory
+        self.fwmp_type = fwmp_type
 
         # Define image embedding
         image_chans = obs_space["image"][2]
@@ -68,18 +69,30 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
         self.relational_block = MultiHeadAttention(n_heads=6, dk=5, dv=6, lq=16+2, lk=16+2, lv=16+2)
 
         # Feature-wise max pool
-        self.feature_wise_maxpool = nn.MaxPool1d(kernel_size=n*m) # TODO could this be position-wise maxpool?
-
-        # MLP after feature-wise/position-wise maxpool
-        self.mlp_aft_feat_wise_maxpool = nn.Sequential(
-            nn.Linear(16+2, 32),
-            nn.ReLU(),
-            nn.Linear(32, 32),
-            nn.ReLU(),
-            nn.Linear(32, 32),
-            nn.ReLU()
-        ) # 2 hidden layers
-        self.actorcritic_input_size = 32
+        if 1 == fwmp_type:
+            self.feature_wise_maxpool = nn.MaxPool1d(kernel_size=n*m) # reduces x,y positions to 1 value.
+            self.mlp_aft_feat_wise_maxpool = nn.Sequential(
+                nn.Linear(16+2, 32),
+                nn.ReLU(),
+                nn.Linear(32, 32),
+                nn.ReLU(),
+                nn.Linear(32, 32),
+                nn.ReLU()
+            ) # 2 hidden layers
+            self.actorcritic_input_size = 32
+        elif 2 == fwmp_type:
+            self.feature_wise_maxpool = nn.Sequential(
+                nn.Conv2d(16+2, 8, (1, 1)), # conv 1x1
+                nn.ReLU(),
+                nn.Conv2d(8, 2, (1, 1)), # conv 1x1
+                nn.ReLU(),
+                nn.MaxPool2d(kernel_size=(n,m)) # reduces positions to 1 value.
+            )
+            self.actorcritic_input_size = 2
+        else:
+            NotImplementedError
+        
+        
 
         # Define memory
         if self.use_memory:
@@ -92,18 +105,18 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
         # Define actor's model
         if isinstance(action_space, gym.spaces.Discrete):
             self.actor = nn.Sequential(
-                nn.Linear(self.actorcritic_input_size, 16),
+                nn.Linear(self.actorcritic_input_size, self.actorcritic_input_size//2),
                 nn.Tanh(),
-                nn.Linear(16, action_space.n)
+                nn.Linear(self.actorcritic_input_size//2, action_space.n)
             )
         else:
             raise ValueError("Unknown action space: " + str(action_space))
 
         # Define critic's model
         self.critic = nn.Sequential(
-            nn.Linear(self.actorcritic_input_size, 16),
+            nn.Linear(self.actorcritic_input_size, self.actorcritic_input_size//2),
             nn.Tanh(),
-            nn.Linear(16, 1)
+            nn.Linear(self.actorcritic_input_size//2, 1)
         )
 
         # Initialize parameters correctly
@@ -128,6 +141,8 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
         assert len(x.shape) == 4 # current implementation of relational module accepts nchw format
 
         # print(x.shape) # shape bs x chans x h x w
+        h, w = x.shape[-2], x.shape[-1]
+        # print('h,w',h,w)
         
         x_layer = self.x_layer.clone()
         y_layer = self.y_layer.clone()
@@ -137,15 +152,28 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
         x_tagged = x_tagged.view(x_tagged.shape[0], x_tagged.shape[1], x_tagged.shape[2]*x_tagged.shape[3]) # shape bs x chans x h*w
         x_tagged = x_tagged.permute(0,2,1) # shape bs x (h*w) x chans
         # print(x_tagged.shape)
-        #watn x_tagged to be bs x h*w x chans
 
-        x_attn, attention = self.relational_block(x_tagged, x_tagged, x_tagged) # x_attn shape same as x_tagged. attention shape (bs, heads, entities, entities)
+        x_attn, attention = self.relational_block(x_tagged, x_tagged, x_tagged) # `x_attn` shape same as x_tagged. `attention` shape (bs, heads, entities, entities)
+        
         x_attn = x_attn.permute(0,2,1) # shape bs x chans x (h*w)
-        # x_attn = x_attn.unsqueeze(0) # shape 1 x chans x (h*w)
-        x_attn = self.feature_wise_maxpool(x_attn) # shape bs x chans x 1
-        x_attn = x_attn.squeeze(-1)
-
-        x_attn_mlp = self.mlp_aft_feat_wise_maxpool(x_attn)
+        if 1 == self.fwmp_type:
+            # x_attn = x_attn.unsqueeze(0) # shape 1 x chans x (h*w)
+            x_attn = self.feature_wise_maxpool(x_attn)
+            assert 1 == x_attn.shape[-1] # x_attn shape bs x chans x 1
+            x_attn = x_attn.squeeze(-1) # shape bs x chans
+            x_attn_mlp = self.mlp_aft_feat_wise_maxpool(x_attn)
+        elif 2 == self.fwmp_type:
+            x_attn = x_attn.view(x_attn.shape[0], x_attn.shape[1], h, w)
+            # print('x_attn shape', x_attn.shape)
+            x_attn = self.feature_wise_maxpool(x_attn) # shape bs x chans x 1 x 1
+            # print('x_attn shape', x_attn.shape)
+            assert (1,1) == x_attn.shape[-2:]
+            x_attn = x_attn.squeeze(-1)
+            x_attn_mlp = x_attn.squeeze(-1) # shape bs x chans
+            # print('x_attn_mlp shape', x_attn_mlp.shape)
+        else:
+            NotImplementedError
+        
 
         if self.use_memory:
             NotImplementedError
