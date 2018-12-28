@@ -62,9 +62,6 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
             self.x_layer = self.x_layer.cuda()
             self.y_layer = self.y_layer.cuda()
         # print(self.x_layer.shape)
-        # print(self.x_layer)
-        # print(self.y_layer)
-        # print("-"*9)
 
         # Define relational modules
         self.relational_block = MultiHeadAttention(n_heads=4, dk=4, dv=4, lq=4+2, lk=4+2, lv=4+2, reduce_heads='concat', reduce_entities='off', transform_last=False, residual_conn=False, norm='off')
@@ -108,8 +105,28 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
             # ) # 2 hidden layers
             self.actorcritic_input_size = 4+2
         elif 4 == fwmp_type:
-            # GIN
-
+            # Sortpool
+            self.mlp_per_entity = nn.Sequential(
+                nn.Conv2d(4*4, 4*4*2*2, (1, 1)), # conv 1x1
+                nn.ReLU(),
+                nn.Conv2d(4*4*2*2, 4*4*2, (1, 1)), # conv 1x1
+                nn.ReLU(),
+                nn.Conv2d(4*4*2, 4*4, (1, 1)), # conv 1x1
+                nn.ReLU()
+            )            
+            self.mlp_fc = nn.Sequential(
+                nn.Linear(4*4*n*m, 512),
+                nn.ReLU(),
+                nn.Linear(512, 256),
+                nn.ReLU(),
+                nn.Linear(256, 128),
+                nn.ReLU(),
+                nn.Linear(128, 64),
+                nn.ReLU(),
+                nn.Linear(64, 32),
+                nn.ReLU()
+            ) # 4 hidden layers
+            self.actorcritic_input_size = 32
         else:
             NotImplementedError
         
@@ -154,7 +171,11 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
     def forward(self, obs, memory=None):
         
         x = torch.transpose(torch.transpose(obs.image, 1, 3), 2, 3)
-        # print('fx shape input', x.shape)
+        # print('fx shape input', x.shape,x)
+        if 4 == self.fwmp_type:
+            entities = x.view(x.shape[0], 1, x.shape[2]*x.shape[3]).clone() # bs x 1 x h*w
+            entities_sorted, entities_order = torch.sort(entities, dim=-1)
+            # print(entities_sorted)
         x = self.image_conv(x)
         # x = x.reshape(x.shape[0], -1)
         
@@ -194,12 +215,24 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
             x_attn = torch.sum(x_attn, dim=-1, keepdim=False) # bs x chans
             # x_attn = self.layernorm_across_features(x_attn)
             # x_attn_mlp = self.mlp_aft_feat_wise_maxpool(x_attn)
-            x_attn_mlp = x_attn
+            x_attn_mlp = x_attn # bs x chans
         elif 4 == self.fwmp_type:
-            NotImplementedError
+            # Sortpool
+            x_attn = x_attn.view(x_attn.shape[0], x_attn.shape[1], h, w) # bs x chans x h x w
+            x_attn = self.mlp_per_entity(x_attn) # bs x depth x h x w
+            x_attn = x_attn.view(x_attn.shape[0], x_attn.shape[1], h*w) # bs x depth x h*w
+            i0 = torch.arange(end=x_attn.shape[0], dtype=torch.int64)
+            i0 = i0.view(i0.shape[0], 1, 1)
+            i1 = torch.arange(end=x_attn.shape[1], dtype=torch.int64)
+            i1 = i1.view(1, i1.shape[0], 1)
+            entities_order = entities_order.repeat(1, x_attn.shape[1] ,1)
+            x_attn = x_attn[i0, i1, entities_order] # sort. bs x depth x h*w
+            x_attn = x_attn.view(x_attn.shape[0], -1) # bs x depth*h*w
+            x_attn_mlp = self.mlp_fc(x_attn)
         else:
             NotImplementedError
-        
+        # print(x_attn_mlp.shape)
+        # print(x_attn_mlp.dtype)
 
         if self.use_memory:
             NotImplementedError
