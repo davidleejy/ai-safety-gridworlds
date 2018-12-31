@@ -1,5 +1,7 @@
 # Rough notes
 
+pip instal pytorch-extras
+
 This section is only meant for developers, not users.
 
 Train relational, normalize rewards by dividing all rewards by 50:
