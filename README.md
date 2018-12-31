@@ -8,14 +8,14 @@ You're welcome to contribute.
 
 Tested on Ubuntu 16.04, Python 3.5.6.
 
-You may want to create a virtualenv before installing packages.
+You may wish to create a virtual environment before installing packages.
 ```
 # If you're using conda
 conda create -n gridworld python=3.5.6
 conda activate gridworld
 ```
 
-Install some fundamental packages.
+Install dependencies.
 ```
 pip install gym
 # Alternatively, follow instructions at https://github.com/openai/gym
@@ -34,9 +34,9 @@ pip3 install -e torch_rl  # or pip if you're using conda.
 ```
 Encountered issues? See https://github.com/lcswillems/torch-rl. Installation procedures may have changed since this readme was written.
 
-Install AI Safety Gridworld's dependencies.
+Install AI Safety Gridworld's dependencies. You don't have install the AI Safety Gridworld package as it is provided in this repository (in the `ai_safety_gridworlds` directory).
 ```
-pip install absl-py numpy==1.14.5 pycolab tensorflow
+pip install absl-py numpy pycolab
 ```
 Encountered issues? See https://github.com/deepmind/ai-safety-gridworlds.git. Dependencies may have changed since this readme was written.
 
@@ -154,6 +154,12 @@ Command to start training is similar to `$ PYTHONPATH=./ai_safety_gridworlds pyt
 # Structure of this repository
 
 Contents within `./ai_safety_gridworlds` is the same as the contents of https://github.com/deepmind/ai-safety-gridworlds. That is, executing `git clone https://github.com/deepmind/ai-safety-gridworlds /path/to/myfolder` results in `/path/to/myfolder` containing the same contents as `./ai_safety_gridworlds` here. Updates to the official _AI Safety Gridworlds_ repository will cause their contents to differ to `./ai_safety_gridworlds` here.
+
+`distributional_shift_gym.py` wraps the pycolab environment with an openAI gym environment ("1st layer of wrapping").
+
+`wrappers_gridworld.py` contains observation & action wrappers meant to wrap the openAI gym wrapper ("2nd layer of wrapping").
+
+`train_distribshift.py` creates environments with the aforementioned two layers of wrapping.
 
 ## Notes
 
