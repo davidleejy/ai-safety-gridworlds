@@ -82,6 +82,23 @@ try:
 except:
     pass
 
+try:
+    register(
+        id='DistribShift-level1-v0',
+        entry_point='distributional_shift_gym:DistributionalShiftEnv',
+        kwargs={'is_testing': False, 'level_choice': 1}
+    )
+except:
+    pass
+
+try:
+    register(
+        id='DistribShift-level2-v0',
+        entry_point='distributional_shift_gym:DistributionalShiftEnv',
+        kwargs={'is_testing': False, 'level_choice': 2}
+    )
+except:
+    pass
 
 if __name__ == "__main__":
     keymap = {'w':Actions.UP, 
