@@ -12,6 +12,10 @@ Evaluate:
 
 $ PYTHONPATH=./ai_safety_gridworlds python3 evaluate.py --env DistribShift-test-v0 --model DistribShift-train-v0_ppo_seed1_18-12-24-13-59-04
 
+Visualize
+python -m visdom.server -p 7777
+$ PYTHONPATH=./ai_safety_gridworlds python3 evaluate.py --env DistribShift-test-v0 --model DistribShift-train-v0_ppo_seed1_18-12-24-13-59-04 --port 7777 --procs 1
+
 Visdom:
 pip install visdom
 python -m visdom.server -p 7777
