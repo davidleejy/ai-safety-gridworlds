@@ -175,6 +175,7 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
         return self.image_embedding_size
 
     def forward(self, obs, memory=None):
+        info = {}
         
         x = torch.transpose(torch.transpose(obs.image, 1, 3), 2, 3)
         # print('fx shape input', x.shape,x)
@@ -219,6 +220,7 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
         # print(x_tagged.shape)
 
         x_attn, attention = self.relational_block(x_tagged, x_tagged, x_tagged) # `x_attn` shape same as x_tagged. `attention` shape (bs, heads, entities, entities)
+        info['attention'] = attention
         x_attn = x_attn.permute(0,2,1) # shape bs x chans x (h*w)
 
         if 1 == self.fwmp_type:
@@ -275,7 +277,7 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
         if self.use_memory:
             return dist, value, memory
         else:
-            return dist, value
+            return dist, value, info
 
     def _get_embed_text(self, text):
         _, hidden = self.text_rnn(self.word_embedding(text))

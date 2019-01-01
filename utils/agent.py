@@ -21,12 +21,12 @@ class Agent:
 
     def get_actions(self, obss):
         preprocessed_obss = self.preprocess_obss(obss, device=self.device)
-
+        infos = {}
         with torch.no_grad():
             if self.acmodel.recurrent:
                 dist, _, self.memories = self.acmodel(preprocessed_obss, self.memories)
             else:
-                dist, _ = self.acmodel(preprocessed_obss)
+                dist, values, infos = self.acmodel(preprocessed_obss)
 
         if self.argmax:
             actions = dist.probs.max(1, keepdim=True)[1]
@@ -36,10 +36,11 @@ class Agent:
         if torch.cuda.is_available():
             actions = actions.cpu().numpy()
 
-        return actions
+        return actions, values, infos
 
     def get_action(self, obs):
-        return self.get_actions([obs]).item()
+        action, *_ = self.get_actions([obs])
+        return action.item()
 
     def analyze_feedbacks(self, rewards, dones):
         if self.acmodel.recurrent:

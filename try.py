@@ -2,6 +2,33 @@ import numpy as np
 import torch
 import torch_extras
 
+print(torch.arange(end=9).view(3,3))
+exit()
+T = torch.arange(end=3*2*2, dtype=torch.int64)
+T = T.view(3,2,2)
+print(T)
+T = torch.cat([T[i,::] for i in range(3)], dim=-1)
+print(T)
+# print(T[0,::])
+# # print(T[1,::])
+# T=T.permute(1,0,2)
+# print(T[:,:,0])
+# print(T[:,:,1])
+# # print(T[:,:,2])
+# T=T.contiguous().view(2,2*3)
+# print(T)
+
+
+
+
+
+
+
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+exit()
+
 B = torch.randint(low=0,high=5,size=(16,1,7,9),dtype=torch.long) # boards
 orig = B.clone()
 B = B.view(-1,1)

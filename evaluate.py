@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import numpy as np
 import gym
 import time
 import torch
@@ -34,7 +35,24 @@ parser.add_argument("--worst-episodes-to-show", type=int, default=10,
                     help="The number of worse episodes to show")
 parser.add_argument("--obs_type", default='board',
                     help="The kind of observation type to use. Options: RGB, board.")
+parser.add_argument("--port", type=int, default=-1,
+                    help="Port for using visdom. Remember to start the visdom server beforehand.")         
 args = parser.parse_args()
+
+if args.port > 0:
+    import visdom
+    viz = visdom.Visdom(port=args.port)
+    attention_windows = []
+    for p in range(args.procs):
+        # initialize
+        attention_windows.append(viz.heatmap(X=torch.arange(end=9).view(3,3), 
+                                    opts=dict(columnnames=['coldidx0', 'colidx1', 'colidx2'],
+                                                rownames=['rowidx0', 'rowidx1', 'rowidx2'],
+                                                colormap='Jet', 
+                                                title='proc {} attention'.format(p))))
+    print('This is X', torch.arange(end=9).view(3,3))
+    print('Heatmap will plot this flipped across a horizontal line.')
+    # exit() # uncomment to see plot.
 
 # Set seed for all randomness sources
 
@@ -71,8 +89,71 @@ log_done_counter = 0
 log_episode_return = torch.zeros(args.procs, device=agent.device)
 log_episode_num_frames = torch.zeros(args.procs, device=agent.device)
 
+
+# print(agent.acmodel)
+# actions = agent.get_actions(obss)
+# for name, param in agent.acmodel.named_parameters():
+#     print(name)
+# mods = agent.acmodel.relational_block.modules()
+# print(type(mods))
+# for m in mods:
+#     print(m)
+
+# exit()
+
+def to_visdom_heatmap_labels(obs, H, W, n_heads):
+    # Visdom heatmap labels can't have repeats.
+    # Heatmap labels should preferably NOT be numbers.
+    # args:
+    #   obs is a list of nubmers.
+    #   H height, W width, n_heads number of attention heads.
+    # returns:
+    #   list of symbols with position coords [ '00w', '01-', '02A', ..]
+    map = {0:'w', 1:'-', 2:'a', 3:'G', 4:'L'}
+    coords=[]
+    for w in range(W):
+        for h in range(H):
+            coords.append('{}{}'.format(w,h))
+    rownames = ['{}{}'.format(c, map[x]) for x, c in zip(obs, coords)]
+    #
+    head_idxs = np.arange(n_heads).reshape(-1,1)
+    head_idxs = np.tile(head_idxs, reps=[1, H*W])
+    head_idxs = head_idxs.reshape(1,-1).squeeze().tolist()
+    prefixes = rownames.copy() * 3
+    columnnames = ['{}{}'.format(a, b) for a, b in zip(prefixes, head_idxs)]
+    return rownames, columnnames
+
+
 while log_done_counter < args.episodes:
-    actions = agent.get_actions(obss)
+    actions, values, info = agent.get_actions(obss)
+    
+    if 'viz' in locals():
+        # print('attention', info['attention'].shape)
+        attention_processes = info['attention'].clone()
+        for p in range(args.procs):
+            A = attention_processes[p,:,:,:]
+            n_heads = A.shape[0]
+            # print(A.shape)
+            A = torch.cat([A[head,::] for head in range(n_heads)], dim=-1)
+            print(len(obss), obss[p].shape, type(obss[p]))
+            obs = obss[p][:,:,0].flatten().astype(dtype=int) #.astype(dtype=str, copy=False)
+            # .transpose().numpy()
+            print(obs.shape, list(obs))
+            rownames, columnnames = to_visdom_heatmap_labels(list(obs), obss[p].shape[0], obss[p].shape[1], n_heads)
+            
+            print(rownames)
+            print(columnnames)
+            # obs.numpy()
+
+            viz.heatmap(X=A, opts={'rownames':rownames, 'columnnames':columnnames, 'colormap':'Jet', 
+                                                'title':'proc {} attention'.format(p) }, win=attention_windows[p])
+            # viz.heatmap(A, opts=dict(rownames=to_visdom_labels(list(obs))))#, win=attention_windows[p])
+            # viz.heatmap(A, win=attention_windows[p])
+            # update with albels.
+
+
+        time.sleep(20)
+    
     obss, rewards, dones, _ = env.step(actions)
     agent.analyze_feedbacks(rewards, dones)
 
