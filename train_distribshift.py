@@ -17,6 +17,8 @@ base_distributional_shift.MOVEMENT_REWARD = -1/50.0
 base_distributional_shift.GOAL_REWARD = 50/50.0
 base_distributional_shift.LAVA_REWARD = -50/50.0
 
+base_distributional_shift.MOVEMENT_REWARD = 0 
+
 # base_distributional_shift.GAME_ART = [
 #     ['#########',
 #      '#A LLL G#',
@@ -178,7 +180,7 @@ try:
     logger.info("Model successfully loaded\n")
 except OSError:
     try:
-        acmodel = ACModel(obs_space, envs[0].action_space, args.fwmp_type, args.mem, args.text)
+        acmodel = ACModel(obs_space, envs[0].action_space, args.fwmp_type, 5, args.mem, args.text)
     except:
         acmodel = ACModel(obs_space, envs[0].action_space, args.mem, args.text)
 if acmodel:

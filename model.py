@@ -1,4 +1,5 @@
 import torch
+import torch_extras
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
@@ -30,7 +31,7 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
     '''
     Actor-critic model with a relational module.
     '''
-    def __init__(self, obs_space, action_space, fwmp_type, use_memory=False, use_text=False):
+    def __init__(self, obs_space, action_space, fwmp_type, one_hot_num_classes=-1, use_memory=False, use_text=False):
         super().__init__()
 
         # Decide which components are enabled
@@ -38,17 +39,22 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
         self.use_memory = use_memory
         self.recurrent = use_memory
         self.fwmp_type = fwmp_type
+        self.one_hot_num_classes = one_hot_num_classes
 
         # Define image embedding
         image_chans = obs_space["image"][2]
-        self.image_conv = nn.Sequential(
-            nn.Conv2d(image_chans, 4, (1, 1)),
-            nn.Tanh(),
-            # nn.ReLU(),
-            # nn.MaxPool2d((2, 2)),
-            # nn.Conv2d(8, 4, (1, 1)),
-            # nn.ReLU()
-        )
+        if one_hot_num_classes > 0:
+            # Converts int (type of object in each square) to one hot encodings.
+            pass
+        else:
+            self.image_conv = nn.Sequential(
+                nn.Conv2d(image_chans, 4, (1, 1)),
+                nn.Tanh(),
+                # nn.ReLU(),
+                # nn.MaxPool2d((2, 2)),
+                # nn.Conv2d(8, 4, (1, 1)),
+                # nn.ReLU()
+            )
         n = obs_space["image"][0]
         m = obs_space["image"][1]
         # self.image_embedding_size = ((n-1)//2-2)*((m-1)//2-2)*64   # original. image_embedding_size is basically the number of elements at output of self.image_conv(x), not accounting for batch size.
@@ -64,7 +70,7 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
         # print(self.x_layer.shape)
 
         # Define relational modules
-        self.relational_block = MultiHeadAttention(n_heads=4, dk=4, dv=4, lq=4+2, lk=4+2, lv=4+2, reduce_heads='concat', reduce_entities='off', transform_last=False, residual_conn=False, norm='off')
+        self.relational_block = MultiHeadAttention(n_heads=3, dk=4, dv=4, lq=5+2, lk=5+2, lv=5+2, reduce_heads='concat', reduce_entities='off', transform_last=False, residual_conn=False, norm='off')
 
         # Feature-wise max pool
         if 1 == fwmp_type:
@@ -107,15 +113,15 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
         elif 4 == fwmp_type:
             # Sortpool
             self.mlp_per_entity = nn.Sequential(
-                nn.Conv2d(4*4, 4*4*2*2, (1, 1)), # conv 1x1
+                nn.Conv2d(3*4, 3*4*2*2, (1, 1)), # conv 1x1
                 nn.ReLU(),
-                nn.Conv2d(4*4*2*2, 4*4*2, (1, 1)), # conv 1x1
+                nn.Conv2d(3*4*2*2, 3*4*2, (1, 1)), # conv 1x1
                 nn.ReLU(),
-                nn.Conv2d(4*4*2, 4*4, (1, 1)), # conv 1x1
+                nn.Conv2d(3*4*2, 3*4, (1, 1)), # conv 1x1
                 nn.ReLU()
             )            
             self.mlp_fc = nn.Sequential(
-                nn.Linear(4*4*n*m, 512),
+                nn.Linear(3*4*n*m, 512),
                 nn.ReLU(),
                 nn.Linear(512, 256),
                 nn.ReLU(),
@@ -176,12 +182,29 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
             entities = x.view(x.shape[0], 1, x.shape[2]*x.shape[3]).clone() # bs x 1 x h*w
             entities_sorted, entities_order = torch.sort(entities, dim=-1)
             # print(entities_sorted)
-        x = self.image_conv(x)
-        # x = x.reshape(x.shape[0], -1)
-        
-        # x = x.squeeze()
-        assert len(x.shape) == 4 # current implementation of relational module accepts nchw format
+        if self.one_hot_num_classes > 0:
+            assert x.shape[1] == 1
+            bs,_,h,w = x.shape
+            '''
+            B = torch.randint(low=0,high=5,size=(16,1,7,9),dtype=torch.long) # boards
+            orig = B.clone()
+            B = B.view(-1,1)
+            hot = torch_extras.one_hot((B.shape[0], 5), B)
+            print(hot.shape)
+            print(hot)
+            hot = hot.view(16,7,9,5)
+            hot = hot.permute(0,3,1,2) #bs x C x h x w
+            print(hot.shape)
+            '''
+            device = x.device
+            x = x.view(-1,1).cpu().long()
+            x = torch_extras.one_hot((x.shape[0], self.one_hot_num_classes), x) # bs*h*w x one_hot_num_classes
+            x = x.view(bs,h,w,self.one_hot_num_classes)
+            x = x.permute(0,3,1,2).to(device).float() #bs x c x h x w
+        else:
+            x = self.image_conv(x)
 
+        assert len(x.shape) == 4 # current implementation of relational module accepts nchw format
         # print(x.shape) # shape bs x chans x h x w
         h, w = x.shape[-2], x.shape[-1]
         # print('h,w',h,w)
