@@ -36,7 +36,9 @@ parser.add_argument("--worst-episodes-to-show", type=int, default=10,
 parser.add_argument("--obs_type", default='board',
                     help="The kind of observation type to use. Options: RGB, board.")
 parser.add_argument("--port", type=int, default=-1,
-                    help="Port for using visdom. Remember to start the visdom server beforehand.")         
+                    help="port for using visdom. Remember to start the visdom server beforehand.")
+parser.add_argument("--pause", type=float, default=1,
+                    help="pause duration (s) between two actions of the agent for visualization.")
 args = parser.parse_args()
 
 if args.port > 0:
@@ -49,7 +51,9 @@ if args.port > 0:
                                     opts=dict(columnnames=['coldidx0', 'colidx1', 'colidx2'],
                                                 rownames=['rowidx0', 'rowidx1', 'rowidx2'],
                                                 colormap='Jet', 
-                                                title='proc {} attention'.format(p))))
+                                                title='proc {} attention'.format(p),
+                                                width=1800*3, height=1500
+                                                )))
     print('This is X', torch.arange(end=9).view(3,3))
     print('Heatmap will plot this flipped across a horizontal line.')
     # exit() # uncomment to see plot.
@@ -109,12 +113,12 @@ def to_visdom_heatmap_labels(obs, H, W, n_heads):
     #   H height, W width, n_heads number of attention heads.
     # returns:
     #   list of symbols with position coords [ '00w', '01-', '02A', ..]
-    map = {0:'w', 1:'-', 2:'a', 3:'G', 4:'L'}
+    map = {0:'w', 1:')', 2:'A', 3:'G', 4:'L'}
     coords=[]
-    for w in range(W):
-        for h in range(H):
-            coords.append('{}{}'.format(w,h))
-    rownames = ['{}{}'.format(c, map[x]) for x, c in zip(obs, coords)]
+    for h in range(H):
+        for w in range(W):
+            coords.append('{}{}'.format(h,w))
+    rownames = ['{}{}'.format(c, map[x]) for c, x in zip(coords, obs)]
     #
     head_idxs = np.arange(n_heads).reshape(-1,1)
     head_idxs = np.tile(head_idxs, reps=[1, H*W])
@@ -135,14 +139,16 @@ while log_done_counter < args.episodes:
             n_heads = A.shape[0]
             # print(A.shape)
             A = torch.cat([A[head,::] for head in range(n_heads)], dim=-1)
-            print(len(obss), obss[p].shape, type(obss[p]))
+            # print(len(obss), obss[p].shape, type(obss[p]))
             obs = obss[p][:,:,0].flatten().astype(dtype=int) #.astype(dtype=str, copy=False)
+            # print(obss[p][:,:,0])
+            # print(obs)
             # .transpose().numpy()
-            print(obs.shape, list(obs))
+            # print(obs.shape, list(obs))
             rownames, columnnames = to_visdom_heatmap_labels(list(obs), obss[p].shape[0], obss[p].shape[1], n_heads)
             
-            print(rownames)
-            print(columnnames)
+            # print(rownames)
+            # print(columnnames)
             # obs.numpy()
 
             viz.heatmap(X=A, opts={'rownames':rownames, 'columnnames':columnnames, 'colormap':'Jet', 
@@ -150,9 +156,7 @@ while log_done_counter < args.episodes:
             # viz.heatmap(A, opts=dict(rownames=to_visdom_labels(list(obs))))#, win=attention_windows[p])
             # viz.heatmap(A, win=attention_windows[p])
             # update with albels.
-
-
-        time.sleep(20)
+        time.sleep(args.pause)
     
     obss, rewards, dones, _ = env.step(actions)
     agent.analyze_feedbacks(rewards, dones)

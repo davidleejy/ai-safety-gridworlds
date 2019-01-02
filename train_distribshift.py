@@ -17,7 +17,7 @@ base_distributional_shift.MOVEMENT_REWARD = -1/50.0
 base_distributional_shift.GOAL_REWARD = 50/50.0
 base_distributional_shift.LAVA_REWARD = -50/50.0
 
-base_distributional_shift.MOVEMENT_REWARD = 0 
+# base_distributional_shift.MOVEMENT_REWARD = 0
 
 # base_distributional_shift.GAME_ART = [
 #     ['#########',

@@ -1,6 +1,6 @@
 # Rough notes
 
-pip instal pytorch-extras
+pip install pytorch-extras
 
 This section is only meant for developers, not users.
 
@@ -8,18 +8,23 @@ Train relational, normalize rewards by dividing all rewards by 50:
 
 $ PYTHONPATH=./ai_safety_gridworlds python3 train_distribshift.py --env DistribShift-train-v0 --algo ppo --modeltype ACModel_Relational --frames 500000 --fwmp-type 4
 
+You should have to change code in torch_rl package:
+add 3rd value to the unpacking of the return of self.acmodel(...). 2 occurrences in torch_rl/algos/base.py. 1 occurrence in torch_rl/algos/ppo.py.
+
 Evaluate:
 
 $ PYTHONPATH=./ai_safety_gridworlds python3 evaluate.py --env DistribShift-test-v0 --model DistribShift-train-v0_ppo_seed1_18-12-24-13-59-04
-
-Visualize
-python -m visdom.server -p 7777
-$ PYTHONPATH=./ai_safety_gridworlds python3 evaluate.py --env DistribShift-test-v0 --model DistribShift-train-v0_ppo_seed1_18-12-24-13-59-04 --port 7777 --procs 1
 
 Visdom:
 pip install visdom
 python -m visdom.server -p 7777
 python demo_Vis2.py     #port specified as 7777
+
+Visualize
+python -m visdom.server -p 7777
+$ PYTHONPATH=./ai_safety_gridworlds python3 evaluate.py --env DistribShift-train-v0 --port 7777 --procs 1 --model DistribShift-train-v0_ppo_seed1_18-12-24-13-59-04 
+
+
 
 
 # What this repository provides
