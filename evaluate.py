@@ -45,14 +45,14 @@ if args.port > 0:
     import visdom
     viz = visdom.Visdom(port=args.port)
     attention_windows = []
-    for p in range(args.procs):
+    for head in range(3):
         # initialize
         attention_windows.append(viz.heatmap(X=torch.arange(end=9).view(3,3), 
                                     opts=dict(columnnames=['coldidx0', 'colidx1', 'colidx2'],
                                                 rownames=['rowidx0', 'rowidx1', 'rowidx2'],
                                                 colormap='Jet', 
-                                                title='proc {} attention'.format(p),
-                                                width=1800*3, height=1500
+                                                title='head {} attention'.format(head),
+                                                width=2000, height=1500
                                                 )))
     print('This is X', torch.arange(end=9).view(3,3))
     print('Heatmap will plot this flipped across a horizontal line.')
@@ -134,25 +134,28 @@ while log_done_counter < args.episodes:
     if 'viz' in locals():
         # print('attention', info['attention'].shape)
         attention_processes = info['attention'].clone()
-        for p in range(args.procs):
-            A = attention_processes[p,:,:,:]
-            n_heads = A.shape[0]
+        A = attention_processes[0,:,:,:]
+        n_heads = A.shape[0]
+        obs_proc0 = obss[0]
+        obs = obs_proc0[:,:,0].flatten().astype(dtype=int)
+        for head in range(n_heads):
             # print(A.shape)
-            A = torch.cat([A[head,::] for head in range(n_heads)], dim=-1)
+            
+            # A = torch.cat([A[head,::] for head in range(n_heads)], dim=-1)
             # print(len(obss), obss[p].shape, type(obss[p]))
-            obs = obss[p][:,:,0].flatten().astype(dtype=int) #.astype(dtype=str, copy=False)
+            # obs = obss[p][:,:,0].flatten().astype(dtype=int) #.astype(dtype=str, copy=False)
             # print(obss[p][:,:,0])
             # print(obs)
             # .transpose().numpy()
             # print(obs.shape, list(obs))
-            rownames, columnnames = to_visdom_heatmap_labels(list(obs), obss[p].shape[0], obss[p].shape[1], n_heads)
+            rownames, _ = to_visdom_heatmap_labels(list(obs), obs_proc0.shape[0], obs_proc0.shape[1], n_heads)
             
             # print(rownames)
             # print(columnnames)
             # obs.numpy()
 
-            viz.heatmap(X=A, opts={'rownames':rownames, 'columnnames':columnnames, 'colormap':'Jet', 
-                                                'title':'proc {} attention'.format(p) }, win=attention_windows[p])
+            viz.heatmap(X=A[head,:,:], opts={'rownames':rownames, 'columnnames':rownames, 'colormap':'Jet', 
+                                                'title':'head {} attention'.format(head) }, win=attention_windows[head])
             # viz.heatmap(A, opts=dict(rownames=to_visdom_labels(list(obs))))#, win=attention_windows[p])
             # viz.heatmap(A, win=attention_windows[p])
             # update with albels.
