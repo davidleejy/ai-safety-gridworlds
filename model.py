@@ -70,7 +70,7 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
         # print(self.x_layer.shape)
 
         # Define relational modules
-        self.relational_block = MultiHeadAttention(n_heads=3, dk=4, dv=4, lq=5+2, lk=5+2, lv=5+2, reduce_heads='concat', reduce_entities='off', transform_last=False, residual_conn=False, norm='off')
+        self.relational_block = MultiHeadAttention(n_heads=1, dk=4, dv=4, lq=5+2, lk=5+2, lv=5+2, reduce_heads='concat', reduce_entities='off', transform_last=False, residual_conn=False, norm='off')
 
         # Feature-wise max pool
         if 1 == fwmp_type:
@@ -112,26 +112,42 @@ class ACModel_Relational(nn.Module, torch_rl.RecurrentACModel):
             self.actorcritic_input_size = 4+2
         elif 4 == fwmp_type:
             # Sortpool
+            # self.mlp_per_entity = nn.Sequential(
+            #     nn.Conv2d(3*4, 3*4*2*2, (1, 1)), # conv 1x1
+            #     nn.ReLU(),
+            #     nn.Conv2d(3*4*2*2, 3*4*2, (1, 1)), # conv 1x1
+            #     nn.ReLU(),
+            #     nn.Conv2d(3*4*2, 3*4, (1, 1)), # conv 1x1
+            #     nn.ReLU()
+            # )
             self.mlp_per_entity = nn.Sequential(
-                nn.Conv2d(3*4, 3*4*2*2, (1, 1)), # conv 1x1
+                nn.Conv2d(1*4, 1*4, (1, 1)), # conv 1x1
                 nn.ReLU(),
-                nn.Conv2d(3*4*2*2, 3*4*2, (1, 1)), # conv 1x1
-                nn.ReLU(),
-                nn.Conv2d(3*4*2, 3*4, (1, 1)), # conv 1x1
-                nn.ReLU()
-            )            
+            )
+            # self.mlp_fc = nn.Sequential(
+            #     nn.Linear(3*4*n*m, 512),
+            #     nn.ReLU(),
+            #     nn.Linear(512, 256),
+            #     nn.ReLU(),
+            #     nn.Linear(256, 128),
+            #     nn.ReLU(),
+            #     nn.Linear(128, 64),
+            #     nn.ReLU(),
+            #     nn.Linear(64, 32),
+            #     nn.ReLU()
+            # ) # 4 hidden layers
             self.mlp_fc = nn.Sequential(
-                nn.Linear(3*4*n*m, 512),
+                nn.Linear(1*4*n*m, 32),
                 nn.ReLU(),
-                nn.Linear(512, 256),
-                nn.ReLU(),
-                nn.Linear(256, 128),
-                nn.ReLU(),
-                nn.Linear(128, 64),
-                nn.ReLU(),
-                nn.Linear(64, 32),
-                nn.ReLU()
-            ) # 4 hidden layers
+                # nn.Linear(512, 256),
+                # nn.ReLU(),
+                # nn.Linear(256, 128),
+                # nn.ReLU(),
+                # nn.Linear(128, 64),
+                # nn.ReLU(),
+                # nn.Linear(64, 32),
+                # nn.ReLU()
+            )
             self.actorcritic_input_size = 32
         else:
             NotImplementedError
